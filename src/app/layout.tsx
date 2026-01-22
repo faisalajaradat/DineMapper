@@ -31,7 +31,7 @@ export default function RootLayout({
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
         crossOrigin=""/>
       </head>
-      <body className={`${inter.className} bg-slate-300`}>
+      <body className={`${inter.className} bg-slate-50`}>
         <AuthProvider>
           <Navbar/>
               {children}

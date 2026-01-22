@@ -1,77 +1,140 @@
-import { NextResponse } from 'next/server';
-import { initModel, createRestaurant, getAllRestaurants, deleteRestaurant, getRestaurantsByUUID } from '@/lib/database';
-import { RestaurantCreationAttributes } from '@/models/Restaurant';
+// src/app/api/restaurants/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { 
+  initModel, 
+  getAllRestaurants,
+  getRestaurantsByUUID,
+  createRestaurantWithRating 
+} from '@/lib/database';
+import { RestaurantCreationAttributes, Mealtype } from '@/models/Restaurant';
 
-export async function GET(request: Request) {
+
+export async function GET(request: NextRequest) {
+  console.log("🔎 GET /api/restaurants HIT");
+  console.log("URL =", request.url);
+
   await initModel();
 
   try {
     const url = new URL(request.url);
-    const userId = url.searchParams.get('userId')?.toString();
+    const userId = url.searchParams.get('userId');
+
+    console.log("UserId =", userId);
+
+    let restaurants;
 
     if (userId) {
-      // Get restaurants for a specific UUID
-      const restaurants = await getRestaurantsByUUID(userId);
-      return NextResponse.json(restaurants);
-    } else {
-      // Get all restaurants if no UUID is provided
-      const restaurants = await getAllRestaurants();
+      console.log("Fetching by user…");
+      restaurants = await getRestaurantsByUUID(userId);
+      console.log("Result count =", restaurants.length);
       return NextResponse.json(restaurants);
     }
+
+    console.log("No userId → fetching all restaurants");
+    restaurants = await getAllRestaurants();
+    return NextResponse.json(restaurants);
+
   } catch (error) {
-    console.error('Failed to fetch restaurants:', error);
-    return NextResponse.json({ error: 'Failed to fetch restaurants' }, { status: 500 });
+    console.error("❌ API ERROR:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch restaurants", detail: String(error) },
+      { status: 500 }
+    );
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   await initModel();
 
   try {
-    const body: RestaurantCreationAttributes = await request.json();
-    const { userId, name, address, latitude, longitude, cuisine, meal, rating_ambiance, rating_foodquality, rating_service, notes } = body;
+    const body = await request.json();
+    const {
+      userId,
+      name,
+      address,
+      latitude,
+      longitude,
+      cuisine,
+      meal,
+      rating_service,
+      rating_foodquality,
+      rating_ambiance,
+      notes,
+      priceRange,
+      phone,
+      website,
+      photos
+    } = body;
 
-    // Log the entire request body and specifically the userId for debugging purposes
-    console.log('Request body:', body);
-    console.log('User ID:', userId);
+    // -------------------------
+    // REQUIRED FIELD VALIDATION
+    // -------------------------
 
-    if (!userId || !name || !address || !cuisine || !latitude || !longitude || !meal || rating_ambiance === undefined || rating_foodquality === undefined || rating_service === undefined) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    if (
+      !userId ||
+      !name ||
+      !address ||
+      !Array.isArray(cuisine) ||
+      cuisine.length === 0 ||
+      latitude === undefined ||
+      longitude === undefined ||
+      !meal ||
+      !["Breakfast", "Brunch", "Lunch", "Dinner"].includes(meal)
+    ) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
     }
 
-    if (typeof rating_service !== 'number' || rating_service < 0 || rating_service > 10 ||
-        typeof rating_foodquality !== 'number' || rating_foodquality < 0 || rating_foodquality > 10 ||
-        typeof rating_ambiance !== 'number' || rating_ambiance < 0 || rating_ambiance > 10) {
-      return NextResponse.json({ error: 'Ratings must be numbers between 0 and 10' }, { status: 400 });
+    // -------------------------
+    // RATING VALIDATION
+    // -------------------------
+    const ratingFields = [
+      { key: "rating_service", value: rating_service },
+      { key: "rating_foodquality", value: rating_foodquality },
+      { key: "rating_ambiance", value: rating_ambiance }
+    ];
+
+    for (const f of ratingFields) {
+      if (typeof f.value !== "number" || f.value < 1 || f.value > 10) {
+        return NextResponse.json(
+          { error: `${f.key} must be a number between 1 and 10` },
+          { status: 400 }
+        );
+      }
     }
 
-    const restaurant = await createRestaurant({ userId, name, address, cuisine, latitude, longitude, meal, rating_ambiance, rating_foodquality, rating_service, notes });
+    // -------------------------
+    // CONVERT LAT / LNG TO NUMBERS (safe)
+    // -------------------------
+    const latNum = Number(latitude);
+    const lngNum = Number(longitude);
+
+    const restaurant = await createRestaurantWithRating({
+      userId,
+      name,
+      address,
+      latitude: latNum,
+      longitude: lngNum,
+      cuisine,
+      meal: meal as Mealtype,
+      rating_service,
+      rating_foodquality,
+      rating_ambiance,
+      notes,
+      priceRange,
+      phone,
+      website,
+      photos
+    });
+
     return NextResponse.json(restaurant, { status: 201 });
   } catch (error) {
-    console.error('Failed to create restaurant:', error);
-    return NextResponse.json({ error: 'Failed to create restaurant' }, { status: 500 });
-  }
-}
-
-export async function DELETE(request: Request) {
-  await initModel();
-
-  try {
-    const url = new URL(request.url);
-    const id = parseInt(url.searchParams.get('id') || '');
-
-    if (isNaN(id)) {
-      return NextResponse.json({ error: 'Invalid restaurant ID' }, { status: 400 });
-    }
-
-    const success = await deleteRestaurant(id);
-    if (!success) {
-      return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 });
-    }
-
-    return NextResponse.json({ message: 'Restaurant deleted successfully' }, { status: 200 });
-  } catch (error) {
-    console.error('Failed to delete restaurant:', error);
-    return NextResponse.json({ error: 'Failed to delete restaurant' }, { status: 500 });
+    console.error("Failed to create restaurant:", error);
+    return NextResponse.json(
+      { error: "Failed to create restaurant" },
+      { status: 500 }
+    );
   }
 }

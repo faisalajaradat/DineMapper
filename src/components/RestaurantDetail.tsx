@@ -1,46 +1,80 @@
 'use client';
+
 import React, { useEffect, useState } from 'react';
 import { RestaurantAttributes } from '@/models/Restaurant';
 import { renderCuisine } from '@/utils/renderCuisine';
-import calculateAverage from '@/utils/CalculateAverageStars';
-import StarRating from './starRating';
 
 interface RestaurantDetailProps {
   id: number;
 }
 
-const RestaurantDetail: React.FC<RestaurantDetailProps> = ({ id }) => {
+export default function RestaurantDetail({ id }: RestaurantDetailProps) {
   const [restaurant, setRestaurant] = useState<RestaurantAttributes | null>(null);
 
   useEffect(() => {
     const fetchRestaurant = async () => {
       const response = await fetch(`/api/restaurants/${id}`);
       const data = await response.json();
-      setRestaurant(data);
+
+      setRestaurant(data.restaurant); // <- only use the restaurant object
+      console.log(data)
     };
+
     fetchRestaurant();
   }, [id]);
 
   if (!restaurant) return <div>Loading...</div>;
 
   return (
-    <div className="space-y-4" id='testing'>
+    <div className="space-y-4">
       <h1 className="text-2xl font-bold">{restaurant.name}</h1>
-      <p><strong>Address:</strong> {restaurant.address}</p>
-      <p><strong>Cuisine:</strong> {renderCuisine(restaurant.cuisine)}</p>
-      <p><strong>Meal: </strong>{restaurant.meal}</p>
-      <strong>Overall Rating</strong> <StarRating rating={calculateAverage(restaurant.rating_service, restaurant.rating_foodquality, restaurant.rating_ambiance)} onRatingChange={() => {}} maxRating={5} allowHover={false} />
-      <strong>Service Rating:</strong> <StarRating rating= {restaurant.rating_service}onRatingChange={() => {}} maxRating={5} allowHover={false} />
-      <strong>Food Quality Rating:</strong> <StarRating rating= {restaurant.rating_foodquality}onRatingChange={() => {}} maxRating={5} allowHover={false} />
-      <strong>Ambiance Rating:</strong> <StarRating rating= {restaurant.rating_ambiance}onRatingChange={() => {}} maxRating={5} allowHover={false} />
-      {restaurant.notes && (
-        <div>
-          <strong>Notes:</strong>
-          <p>{restaurant.notes}</p>
+
+      <p>
+        <strong>Address:</strong> {restaurant.address}
+      </p>
+
+      <p>
+        <strong>Cuisine:</strong> {renderCuisine(restaurant.cuisine)}
+      </p>
+
+      {/* Optional fields only if present */}
+      {restaurant.phone && (
+        <p>
+          <strong>Phone:</strong> {restaurant.phone}
+        </p>
+      )}
+
+      {restaurant.website && (
+        <p>
+          <strong>Website:</strong>{" "}
+          <a
+            href={restaurant.website}
+            target="_blank"
+            className="text-blue-600 underline"
+          >
+            {restaurant.website}
+          </a>
+        </p>
+      )}
+
+      {restaurant.priceRange && (
+        <p>
+          <strong>Price Range:</strong> {restaurant.priceRange}
+        </p>
+      )}
+
+      {restaurant.photos && restaurant.photos.length > 0 && (
+        <div className="flex gap-2 flex-wrap pt-3">
+          {restaurant.photos.map((photo, i) => (
+            <img
+              key={i}
+              src={photo}
+              alt={restaurant.name}
+              className="w-40 h-40 object-cover rounded-md border"
+            />
+          ))}
         </div>
       )}
     </div>
   );
-};
-
-export default RestaurantDetail;
+}

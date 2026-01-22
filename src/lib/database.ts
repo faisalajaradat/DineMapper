@@ -1,228 +1,269 @@
-import { Sequelize, Options } from 'sequelize';
-import Restaurant, { RestaurantAttributes, RestaurantCreationAttributes } from '../models/Restaurant';
-import config from '../../config/config.js';
-import User, { UserAttributes, UserCreationAttributes } from '@/models/User';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 
+
+import { Sequelize, Options } from 'sequelize';
+import Restaurant from '../models/Restaurant';
+import Rating from '../models/Rating';
+import RestaurantAggregate from '../models/RestaurantAggregate';
+import User from '@/models/User';
+import bcrypt from 'bcryptjs';
+import { signToken, verifyToken } from "@/lib/auth";
+import config from '../../config/config.js';
 
 const env = process.env.NODE_ENV || 'development';
 const sequelizeConfig = (config as { [key: string]: Options })[env];
 
 let sequelize: Sequelize;
 
-// JWT secret (store in environment variables)
+// JWT secret
 const jwtSecret = process.env.JWT_SECRET || 'your_jwt_secret';
 
-// Initialize the database
-const initDatabase = async () => {
+// -----------------------------
+// INIT DATABASE + MODELS
+// -----------------------------
+export const initDatabase = async () => {
   if (!sequelize) {
     sequelize = new Sequelize(sequelizeConfig);
 
     try {
       await sequelize.authenticate();
-      console.log('Database connection has been established successfully.');
-    } catch (error) {
-      console.error('Unable to connect to the database:', error);
+      console.log('Database connection established.');
+    } catch (err) {
+      console.error('Unable to connect:', err);
     }
   }
   return sequelize;
 };
 
-// Initialize the model
-const initModel = async () => {
+export const initModel = async () => {
   const sequelize = await initDatabase();
+
+  // Init models
   Restaurant.initModel(sequelize);
+  Rating.initModel(sequelize);
+  RestaurantAggregate.initModel(sequelize);
   User.initModel(sequelize);
+
+  // --------------------------
+  // NEW, CORRECT ASSOCIATIONS
+  // --------------------------
+
+  // Restaurant has many Ratings
+  Restaurant.hasMany(Rating, {
+    foreignKey: 'restaurantId',
+    as: 'ratings',
+    onDelete: 'CASCADE'
+  });
+
+  // Restaurant has one aggregate row
+  Restaurant.hasOne(RestaurantAggregate, {
+    foreignKey: 'restaurantId',
+    as: 'aggregate',
+    onDelete: 'CASCADE'
+  });
+
+  // Rating belongs to Restaurant
+  Rating.belongsTo(Restaurant, {
+    foreignKey: 'restaurantId',
+    as: 'restaurant',
+  });
+
+  // Rating belongs to User
+  Rating.belongsTo(User, {
+    foreignKey: 'userId',
+    as: 'user'
+  });
+
+  // User has many Ratings
+  User.hasMany(Rating, {
+    foreignKey: 'userId',
+    as: 'ratings'
+  });
+
   await sequelize.sync({ force: false });
-  console.log('Database & tables created!');
+  console.log('Models synchronized.');
 };
 
-// User Functions
-
-// Register User
-export const registerUser = async (data: UserCreationAttributes): Promise<UserAttributes> => {
+// -----------------------------
+// AGGREGATES
+// -----------------------------
+export const updateRestaurantAggregate = async (restaurantId: number) => {
   await initModel();
-  try {
-    const user = await User.create(data);
-    return user.get({ plain: true }) as UserAttributes;
-  } catch (error) {
-    console.error('Failed to register user:', error);
-    throw error;
-  }
-};
 
-// Login User
-export const loginUser = async (email: string, password: string): Promise<string | null> => {
-  await initModel();
-  try {
-    const user = await User.findOne({ where: { email } });
-    if (!user) {
-      console.log('User not found');
-      return null;
+  const [aggregate] = await RestaurantAggregate.findOrCreate({
+    where: { restaurantId },
+    defaults: {
+      restaurantId,
+      totalRatings: 0,
+      avg_service: 0,
+      avg_foodquality: 0,
+      avg_ambiance: 0,
+      avg_overall: 0
     }
+  });
 
-    const validPassword = bcrypt.compare(password, user.password);
-    if (!validPassword) {
-      console.log('Invalid password');
-      return null;
-    }
+  const ratings = await Rating.findAll({ where: { restaurantId } });
+  const count = ratings.length;
 
-    // Generate JWT token
-    const token = jwt.sign({ id: user.uuid, email: user.email }, jwtSecret, { expiresIn: '1h' });
-    return token;
-  } catch (error) {
-    console.error('Failed to login user:', error);
-    throw error;
+  if (count === 0) {
+    await aggregate.update({
+      totalRatings: 0,
+      avg_service: 0,
+      avg_foodquality: 0,
+      avg_ambiance: 0,
+      avg_overall: 0
+    });
+    return aggregate;
   }
+
+  const sumService = ratings.reduce((s, r) => s + r.rating_service, 0);
+  const sumFood = ratings.reduce((s, r) => s + r.rating_foodquality, 0);
+  const sumAmb = ratings.reduce((s, r) => s + r.rating_ambiance, 0);
+
+  await aggregate.update({
+    totalRatings: count,
+    avg_service: +(sumService / count).toFixed(2),
+    avg_foodquality: +(sumFood / count).toFixed(2),
+    avg_ambiance: +(sumAmb / count).toFixed(2),
+    avg_overall: +((sumService + sumFood + sumAmb) / (count * 3)).toFixed(2),
+  });
+
+  return aggregate;
 };
 
-// Verify JWT Token (Middleware)
-export const authenticateToken = (token: string) => {
-  if (!token) {
-    return { error: 'Access denied', status: 401 };
-  }
-
-  try {
-    const verified = jwt.verify(token, jwtSecret);
-    return { user: verified }; // Return the decoded user from the token
-  } catch (error) {
-    return { error: 'Invalid token', status: 400 };
-  }
-};
-
-
-// Update user
-// Update User by UUID
-export const updateUser = async (uuid: string, updatedData: Partial<UserAttributes>): Promise<UserAttributes | null> => {
+// -----------------------------
+// USERS
+// -----------------------------
+export const registerUser = async (data: any) => {
   await initModel();
-  try {
-    // Find the user by their UUID
-    const user = await User.findOne({ where: { uuid } });
-
-    // If user not found, return null
-    if (!user) {
-      console.error('User not found');
-      return null;
-    }
-
-    // Update user with the provided data
-    await user.update(updatedData);
-
-    // Return the updated user data (as plain object)
-    return user.get({ plain: true }) as UserAttributes;
-  } catch (error) {
-    console.error('Failed to update user:', error);
-    throw error;
-  }
+  return User.create(data).then(u => u.get({ plain: true }));
 };
 
-
-
-
-// Restaurant Functions
-
-// Create Restaurant
-export const createRestaurant = async (data: RestaurantCreationAttributes): Promise<RestaurantAttributes> => {
+export const loginUser = async (email: string, password: string) => {
   await initModel();
-  try {
-    const restaurantData = {
-      ...data,
-    };
 
-    const restaurant = await Restaurant.create(restaurantData);
-    return restaurant.get({ plain: true }) as RestaurantAttributes;
-  } catch (error) {
-    console.error('Failed to create restaurant:', error);
-    throw error;
-  }
+  const user = await User.findOne({ where: { email } });
+  if (!user) return null;
+
+  const valid = await bcrypt.compare(password, user.password);
+  if (!valid) return null;
+
+  return signToken({ id: user.uuid, email: user.email });
 };
 
-// Read Restaurant by ID
-export const getRestaurantById = async (id: number): Promise<RestaurantAttributes | null> => {
+// -----------------------------
+// RESTAURANTS
+// -----------------------------
+export const createRestaurant = async (data: any) => {
   await initModel();
-  try {
-    const restaurant = await Restaurant.findByPk(id);
-    return restaurant ? restaurant.get({ plain: true }) as RestaurantAttributes : null;
-  } catch (error) {
-    console.error('Failed to get restaurant:', error);
-    throw error;
-  }
+  const restaurant = await Restaurant.create(data);
+  return restaurant.get({ plain: true });
 };
 
-// Get all Restaurants
-export const getAllRestaurants = async (): Promise<RestaurantAttributes[]> => {
+export const createRestaurantWithRating = async (data: any) => {
   await initModel();
-  try {
-    const restaurants = await Restaurant.findAll();
-    return restaurants.map(r => r.get({ plain: true }) as RestaurantAttributes);
-  } catch (error) {
-    console.error('Failed to get restaurants:', error);
-    throw error;
-  }
+
+  const restaurant = await Restaurant.create({
+    name: data.name,
+    address: data.address,
+    cuisine: data.cuisine,
+    latitude: data.latitude,
+    longitude: data.longitude,
+    priceRange: data.priceRange,
+    phone: data.phone,
+    website: data.website,
+    photos: data.photos,
+    isActive: true
+  });
+
+  const rating = await Rating.create({
+    restaurantId: restaurant.id,
+    userId: data.userId,
+    rating_service: data.rating_service,
+    rating_foodquality: data.rating_foodquality,
+    rating_ambiance: data.rating_ambiance,
+    meal: data.meal,
+    notes: data.notes
+  });
+
+  await updateRestaurantAggregate(restaurant.id);
+
+  return {
+    ...restaurant.get({ plain: true }),
+    userRating: rating.get({ plain: true })
+  };
 };
 
-// Update Restaurant
-export const updateRestaurant = async (id: number, data: Partial<RestaurantCreationAttributes>): Promise<RestaurantAttributes | null> => {
+export const getAllRestaurants = async () => {
   await initModel();
-  try {
-    const [updatedRowsCount] = await Restaurant.update(data, { where: { id } });
-    if (updatedRowsCount > 0) {
-      const updatedRestaurant = await Restaurant.findByPk(id);
-      return updatedRestaurant ? updatedRestaurant.get({ plain: true }) as RestaurantAttributes : null;
-    }
-    return null;
-  } catch (error) {
-    console.error('Failed to update restaurant:', error);
-    throw error;
-  }
+  const restaurants = await Restaurant.findAll({
+    include: [{ model: RestaurantAggregate, as: 'aggregate' }],
+    where: { isActive: true }
+  });
+  return restaurants.map(r => r.get({ plain: true }));
 };
 
-// Delete Restaurant
-export const deleteRestaurant = async (id: number): Promise<boolean> => {
-  await initModel();
-  try {
-    const deletedRowsCount = await Restaurant.destroy({ where: { id } });
-    return deletedRowsCount > 0;
-  } catch (error) {
-    console.error('Failed to delete restaurant:', error);
-    throw error;
-  }
-};
-
-// Get Restaurants by UUID
+// -----------------------------
+// GET Restaurants by User RATING, not ownership
+// -----------------------------
 export const getRestaurantsByUUID = async (userId: string) => {
   await initModel();
-  
-  // Validate if the passed UUID is valid
-  // if (!isUUID(uuid)) {
-  //   throw new Error('Invalid UUID format');
-  // }
 
-  try {
-    const restaurants = await Restaurant.findAll({ where: { userId } });
-    return restaurants;
-  } catch (error) {
-    console.error('Error in getRestaurantsByUUID:', error);
-    throw error;
-  }
+  // Restaurants the user has rated
+  const restaurants = await Restaurant.findAll({
+    include: [
+      {
+        model: Rating,
+        as: 'ratings',
+        where: { userId },
+        required: true
+      },
+      {
+        model: RestaurantAggregate,
+        as: 'aggregate',
+        required: false
+      }
+    ]
+  });
+
+  return restaurants.map(r => r.get({ plain: true }));
+};
+export const getRestaurantById = async (restaurantId: number) => {
+  await initModel();
+
+  const restaurant = await Restaurant.findOne({
+    where: { id: restaurantId, isActive: true },
+    include: [
+      { model: RestaurantAggregate, as: 'aggregate' },
+      { 
+        model: Rating, 
+        as: 'ratings',
+        include: [{ model: User, as: 'user', attributes: ['uuid', 'email'] }]
+      }
+    ]
+  });
+
+  return restaurant ? restaurant.get({ plain: true }) : null;
 };
 
-export { initDatabase, initModel };
 
-export default {
-  initDatabase,
-  initModel,
-  // User operations
-  registerUser,
-  loginUser,
-  authenticateToken,
-  updateUser,
-  // Restaurant operations
-  createRestaurant,
-  getRestaurantById,
-  getAllRestaurants,
-  updateRestaurant,
-  deleteRestaurant,
-  getRestaurantsByUUID,
+// -----------------------------
+// RATINGS
+// -----------------------------
+export const addRating = async (data: any) => {
+  await initModel();
+  const rating = await Rating.create(data);
+  await updateRestaurantAggregate(data.restaurantId);
+  return rating.get({ plain: true });
+};
+
+export const getRatingsByRestaurantId = async (restaurantId: number) => {
+  await initModel();
+
+  const ratings = await Rating.findAll({
+    where: { restaurantId },
+    include: [{ model: User, as: 'user', attributes: ['uuid', 'email'] }],
+    order: [['createdAt', 'DESC']]
+  });
+
+  return ratings.map(r => r.get({ plain: true }));
 };

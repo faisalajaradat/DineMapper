@@ -1,46 +1,53 @@
-import { NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import User from '@/models/User';
-import { initDatabase } from '@/lib/database';
+export const runtime = "nodejs";
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key'; 
+import { NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
+import { SignJWT } from "jose";
+import User from "@/models/User";
+import { initDatabase } from "@/lib/database";
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { email, password } = body;
-
-    if (!email || !password) {
-      return NextResponse.json({ message: 'Email and password are required' }, { status: 400 });
-    }
+    const { email, password } = await req.json();
 
     const sequelize = await initDatabase();
     User.initModel(sequelize);
 
-    const user = (await User.findOne({ where: { email } }))?.get();
-    
-    if (!user) {
-      return NextResponse.json({ message: 'Invalid email or password' }, { status: 400 });
+    const userInstance = await User.findOne({ where: { email } });
+    if (!userInstance) {
+      return NextResponse.json({ message: "Invalid credentials" }, { status: 400 });
     }
 
+    const user = userInstance.get();
+    const valid = await bcrypt.compare(password, user.password);
 
-
-    const isPasswordValid = bcrypt.compareSync(password,user.password);
-    
-    if (!isPasswordValid) {
-      return NextResponse.json({ message: 'Invalid email or password' }, { status: 400 });
+    if (!valid) {
+      return NextResponse.json({ message: "Invalid credentials" }, { status: 400 });
     }
 
-    const token = jwt.sign({ uuid: user.uuid, email: user.email }, JWT_SECRET, { expiresIn: '1h' });
-    return new NextResponse(JSON.stringify({ message: 'Login successful' }), {
-      status: 200,
-      headers: {
-        'Set-Cookie': `authToken=${token}; HttpOnly; Path=/; Max-Age=3600`, // Set the cookie with the token
-      },
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET!);
+
+    const token = await new SignJWT({
+      uuid: user.uuid,
+      email: user.email,
+    })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt()
+      .setExpirationTime("1h")
+      .sign(secret);
+
+    const response = NextResponse.json({ message: "Login successful" });
+
+    response.cookies.set("authToken", token, {
+      httpOnly: true,
+      path: "/",
+      maxAge: 3600,
+      sameSite: "lax",
     });
-  } catch (error) {
-    console.error('Error during login:', error);
-    return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
+
+    return response;
+  } catch (err) {
+    console.error("LOGIN ERROR:", err);
+    return NextResponse.json({ message: "Internal error" }, { status: 500 });
   }
 }

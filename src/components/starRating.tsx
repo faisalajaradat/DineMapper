@@ -1,17 +1,28 @@
+"use client";
+
 import React, { useState } from 'react';
 
 interface StarRatingProps {
   rating: number;
-  onRatingChange: (rating: number) => void;
+  onRatingChange?: (rating: number) => void;
   maxRating?: number;
   allowHover?: boolean;
+  readOnly?: boolean;
+  size?: 'sm' | 'md' | 'lg';
 }
 
-const StarRating: React.FC<StarRatingProps> = ({ rating, onRatingChange, maxRating = 5, allowHover = true }) => {
+const StarRating: React.FC<StarRatingProps> = ({ 
+  rating, 
+  onRatingChange, 
+  maxRating = 5, 
+  allowHover = true,
+  readOnly = false,
+  size = 'md'
+}) => {
   const [hoverRating, setHoverRating] = useState<number | null>(null);
 
   const handleStarHover = (event: React.MouseEvent<HTMLSpanElement>, hoveredRating: number) => {
-    if (!allowHover) return;
+    if (readOnly || !allowHover) return;
     const { left, width } = event.currentTarget.getBoundingClientRect();
     const x = event.clientX - left;
     const isHalfStar = x < width / 2;
@@ -19,6 +30,7 @@ const StarRating: React.FC<StarRatingProps> = ({ rating, onRatingChange, maxRati
   };
 
   const handleStarClick = (event: React.MouseEvent<HTMLSpanElement>, clickedRating: number) => {
+    if (readOnly || !onRatingChange) return;
     const { left, width } = event.currentTarget.getBoundingClientRect();
     const x = event.clientX - left;
     const isHalfStar = x < width / 2;
@@ -26,11 +38,17 @@ const StarRating: React.FC<StarRatingProps> = ({ rating, onRatingChange, maxRati
   };
 
   const handleMouseLeave = () => {
-    if (!allowHover) return;
+    if (readOnly || !allowHover) return;
     setHoverRating(null);
   };
 
   const displayRating = hoverRating !== null ? hoverRating : rating;
+
+  const sizeClasses = {
+    sm: { fontSize: '1rem', width: '1rem', height: '1rem' },
+    md: { fontSize: '1.5rem', width: '1.5rem', height: '1.5rem' },
+    lg: { fontSize: '2rem', width: '2rem', height: '2rem' }
+  };
 
   const stars = Array.from({ length: maxRating }, (_, index) => {
     const starValue = index + 1;
@@ -44,11 +62,21 @@ const StarRating: React.FC<StarRatingProps> = ({ rating, onRatingChange, maxRati
         tabIndex={0}
         onMouseMove={(e) => handleStarHover(e, starValue)}
         onClick={(e) => handleStarClick(e, starValue)}
-        style={{ cursor: allowHover ? 'pointer' : 'default', position: 'relative', display: 'inline-block' }}
+        style={{ 
+          cursor: (readOnly || !allowHover) ? 'default' : 'pointer', 
+          position: 'relative', 
+          display: 'inline-block',
+          ...sizeClasses[size]
+        }}
       >
         <span
           className="star-full"
-          style={{ color: isFilled ? '#ffd700' : '#ddd', width: '100%', display: 'inline-block' }}
+          style={{ 
+            color: isFilled ? '#ffd700' : '#ddd', 
+            width: '100%', 
+            display: 'inline-block',
+            fontSize: 'inherit'
+          }}
         >
           &#9733;
         </span>
@@ -63,6 +91,7 @@ const StarRating: React.FC<StarRatingProps> = ({ rating, onRatingChange, maxRati
               height: '100%',
               color: '#ffd700',
               overflow: 'hidden',
+              fontSize: 'inherit'
             }}
           >
             &#9733;
@@ -79,23 +108,20 @@ const StarRating: React.FC<StarRatingProps> = ({ rating, onRatingChange, maxRati
       <style>{`
         .star-rating {
           display: flex;
-          align-items: center; /* Vertically center the stars */
+          align-items: center;
           user-select: none;
         }
         .star {
-          font-size: 2rem;
           position: relative;
           display: inline-block;
-          width: 2rem;
-          height: 2rem;
-          margin-right: 0; /* Removed gap */
-          line-height: 1; /* Ensure stars aren't cut off */
-          vertical-align: middle; /* Vertically align stars */
+          margin-right: 0;
+          line-height: 1;
+          vertical-align: middle;
         }
         .star-full {
           display: inline-block;
           width: 100%;
-          line-height: 1; /* Ensure proper height alignment */
+          line-height: 1;
         }
       `}</style>
     </div>

@@ -43,7 +43,7 @@ const CreateRestaurant: React.FC<CreateRestaurantProps> = ({ pass = defaultPass 
             </svg>
           </span>
         </DialogTrigger >
-        <DialogContent className= "bg-[#ADC4CE]"
+        <DialogContent className=" w-full max-w-md mx-auto rounded-lg bg-slate-100 shadow-lg"
         onInteractOutside={(e) => {
           const hasPacContainer = e.composedPath().some((el: EventTarget) => {
             if ("classList" in el) {

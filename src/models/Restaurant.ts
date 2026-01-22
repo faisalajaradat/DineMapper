@@ -1,13 +1,16 @@
 'use server';
 import { Model, DataTypes, Sequelize, Optional } from 'sequelize';
-import User from './User'; 
 import { CUISINE_OPTIONS } from '@/lib/constants';
 
-// Define Cuisine and Mealtype as types
+// ---------------------------------------------
+// Types
+// ---------------------------------------------
+
 export type Mealtype = "Breakfast" | "Brunch" | "Lunch" | "Dinner" | null;
 export type Cuisine = typeof CUISINE_OPTIONS[number];
+export type PriceRange = "$" | "$$" | "$$$" | "$$$$";
 
-// Restaurant attributes interface
+// What a Restaurant *is* in the DB
 export interface RestaurantAttributes {
   id: number;
   name: string;
@@ -15,116 +18,109 @@ export interface RestaurantAttributes {
   cuisine: Cuisine[];
   latitude: number;
   longitude: number;
-  meal: Mealtype;
-  rating_service: number;
-  rating_foodquality: number;
-  rating_ambiance: number;
-  notes?: string;
+  priceRange?: PriceRange;
+  phone?: string;
+  website?: string;
+  photos?: string[];
+  isActive: boolean;
   createdAt?: Date;
   updatedAt?: Date;
-  userId: string;  // Foreign key to link the restaurant to a user
 }
 
-// Restaurant creation attributes interface (id is optional for creation)
-export interface RestaurantCreationAttributes extends Optional<RestaurantAttributes, 'id'> {}
+// What is needed to *create* a restaurant
+export interface RestaurantCreationAttributes
+  extends Optional<RestaurantAttributes, 'id'> {}
 
-class Restaurant extends Model<RestaurantAttributes, RestaurantCreationAttributes> implements RestaurantAttributes {
+// For restaurant + aggregate output
+export interface RestaurantWithAggregate extends RestaurantAttributes {
+  aggregate?: {
+    restaurantId: number;
+    totalRatings: number;
+    avg_service: number;
+    avg_foodquality: number;
+    avg_ambiance: number;
+    avg_overall: number;
+    updatedAt: Date;
+  };
+}
+
+// ---------------------------------------------
+// Model
+// ---------------------------------------------
+
+class Restaurant extends Model<
+  RestaurantAttributes,
+  RestaurantCreationAttributes
+> implements RestaurantAttributes {
+
   public id!: number;
   public name!: string;
   public address!: string;
   public cuisine!: Cuisine[];
   public latitude!: number;
   public longitude!: number;
-  public meal!: Mealtype;
-  public rating_service!: number;
-  public rating_foodquality!: number;
-  public rating_ambiance!: number;
-  public notes!: string | undefined;
+  public priceRange?: PriceRange;
+  public phone?: string;
+  public website?: string;
+  public photos?: string[];
+  public isActive!: boolean;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
-  public userId!: string;  // Foreign key to link the restaurant to a user
 
   static initModel(sequelize: Sequelize): typeof Restaurant {
-    Restaurant.init({
-      id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        primaryKey: true,
-      },
-      name: {
-        type: DataTypes.STRING,
-        allowNull: false,
-      },
-      address: {
-        type: DataTypes.STRING,
-        allowNull: false,
-      },
-      cuisine: {
-        type: DataTypes.JSON,  // Storing array of Cuisine as JSON
-        allowNull: false,
-      },
-      latitude:{
-        type: DataTypes.FLOAT,
-        allowNull: false,
-      },
-      longitude:{
-        type: DataTypes.FLOAT,
-        allowNull: false,
-      },
-      meal: {
-        type: DataTypes.ENUM("Breakfast", "Brunch", "Lunch", "Dinner"),  // Define enum
-        allowNull: false,
-      },
-      rating_service: {
-        type: DataTypes.FLOAT,
-        allowNull: false,
-        defaultValue: 0,  // Set default to 0
-        validate: {
-          min: 0,
-          max: 10,
+    Restaurant.init(
+      {
+        id: {
+          type: DataTypes.INTEGER,
+          autoIncrement: true,
+          primaryKey: true,
         },
-      },
-      rating_foodquality: {
-        type: DataTypes.FLOAT,
-        allowNull: false,
-        defaultValue: 0,  // Set default to 0
-        validate: {
-          min: 0,
-          max: 10,
+        name: { type: DataTypes.STRING, allowNull: false },
+        address: { type: DataTypes.STRING, allowNull: false },
+        latitude: {
+          type: DataTypes.DECIMAL(10, 8),
+          allowNull: false,
         },
-      },
-      rating_ambiance: {
-        type: DataTypes.FLOAT,
-        allowNull: false,
-        defaultValue: 0,  // Set default to 0
-        validate: {
-          min: 0,
-          max: 10,
+        longitude: {
+          type: DataTypes.DECIMAL(11, 8),
+          allowNull: false,
         },
-      },
-      notes: {
-        type: DataTypes.TEXT,
-        allowNull: true,
-      },
-      userId: {
-        type: DataTypes.UUID,
-        allowNull: false,
-        references: {
-          model: 'Users',  // Links to the User model
-          key: 'uuid',
+        cuisine: {
+          type: DataTypes.JSON,
+          allowNull: false,
+          defaultValue: [],
         },
-        onDelete: 'CASCADE',  // Delete restaurant if user is deleted
+        priceRange: {
+          type: DataTypes.ENUM("$", "$$", "$$$", "$$$$"),
+          allowNull: true,
+        },
+        phone: { type: DataTypes.STRING, allowNull: true },
+        website: { type: DataTypes.STRING, allowNull: true },
+        photos: { type: DataTypes.JSON, allowNull: true, defaultValue: [] },
+        isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
+        createdAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+        updatedAt: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
       },
-    }, {
-      sequelize,
-      modelName: 'Restaurant',
-      tableName: 'Restaurants',
-    });
+      {
+        sequelize,
+        modelName: "Restaurant",
+        tableName: "Restaurants",
+      }
+    );
 
     return Restaurant;
   }
-  static associate() {
-    Restaurant.belongsTo(User, { foreignKey: 'userId' });
+
+  static associate(models: any) {
+    Restaurant.hasMany(models.Rating, {
+      foreignKey: "restaurantId",
+      as: "ratings",
+    });
+
+    Restaurant.hasOne(models.RestaurantAggregate, {
+      foreignKey: "restaurantId",
+      as: "aggregate",
+    });
   }
 }
 

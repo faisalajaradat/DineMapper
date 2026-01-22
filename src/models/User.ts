@@ -1,4 +1,5 @@
 import { Model, DataTypes, Sequelize, Optional } from 'sequelize';
+import Rating from './Rating';
 
 // Define the attributes for User
 export interface UserAttributes {
@@ -48,6 +49,11 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
     );
     return User;
   }
+  static associate(models: any) {  
+    Rating.belongsTo(models.Restaurant, {  foreignKey: 'restaurantId',  as: 'restaurant'  });  
+    Rating.belongsTo(models.User, {  foreignKey: 'userId',  as: 'user'  });}
 }
+
+
 
 export default User;

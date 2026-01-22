@@ -1,132 +1,255 @@
+// src/components/Surpriseme.tsx
 'use client';
 
 import { useLocation } from '@/contexts/LocationContext';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { ChevronDownIcon, ChevronUpIcon } from '@radix-ui/react-icons';
+import { ChevronDownIcon, ChevronUpIcon, MapPin, Sparkles } from 'lucide-react';
+import { RestaurantWithAggregate } from '@/models/Restaurant';
+import Link from 'next/link';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import StarRating from '@/components/starRating';
+import { cuisines } from '../../../utils/CuisineOptions';
 
 export default function Surpriseme() {
   const { location, error, loading } = useLocation();
-  const [distance, setDistance] = useState(20); // Default distance: 20 km
+
+  const [distance, setDistance] = useState(20);
   const [showOptions, setShowOptions] = useState(false);
-  const [beenTo, setBeenTo] = useState('haven’t');
-  const [cuisine, setCuisine] = useState('');
-  const [recommendation, setRecommendation] = useState(null);
+  const [cuisine, setCuisine] = useState<string>('any');
+  const [recommendation, setRecommendation] = useState<RestaurantWithAggregate | null>(null);
+  const [allRestaurants, setAllRestaurants] = useState<RestaurantWithAggregate[]>([]);
+  const [isGettingRecommendation, setIsGettingRecommendation] = useState(false);
+  const [lastMatchCount, setLastMatchCount] = useState<number | null>(null);
 
-  const cuisines = ['Italian', 'Chinese', 'Mexican', 'Indian', 'Japanese', 'American']; // Example cuisines
+  // ---------------------------
+  // Fetch restaurants
+  // ---------------------------
+  useEffect(() => {
+    const fetchRestaurants = async () => {
+      const res = await fetch('/api/restaurants');
+      if (res.ok) {
+        setAllRestaurants(await res.json());
+      }
+    };
+    fetchRestaurants();
+  }, []);
 
-  const handleGetRecommendation = async () => {
-    if (!location || loading || error) {
-      alert('Unable to fetch your location.');
-      return;
-    }
+  // ---------------------------
+  // Utils
+  // ---------------------------
+  const deg2rad = (deg: number) => deg * (Math.PI / 180);
 
-
-    const response = await fetch(`/api/recommendation`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        latitude: location.latitude,
-        longitude: location.longitude,
-        beenTo,
-        cuisine: cuisine === 'any' ? '' : cuisine, 
-        radius: distance,
-      }),
-    });
-
-    const data = await response.json();
-    setRecommendation(data.recommendation || 'No recommendations found.');
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371;
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+      Math.sin(dLon / 2) ** 2;
+    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
   };
 
+  const getAverageRating = (r: RestaurantWithAggregate) => {
+    if (!r.aggregate) return 0;
+    return r.aggregate.avg_overall / 2;
+  };
+
+  // ---------------------------
+  // Recommendation logic
+  // ---------------------------
+  const handleGetRecommendation = async () => {
+    if (!location || loading || error) return;
+
+    setIsGettingRecommendation(true);
+    setRecommendation(null);
+
+    const filtered = allRestaurants.filter(r => {
+      const dist = calculateDistance(
+        location.latitude,
+        location.longitude,
+        r.latitude,
+        r.longitude
+      );
+
+      if (dist > distance) return false;
+
+      if (cuisine !== 'any' && !r.cuisine.includes(cuisine)) {
+        return false;
+      }
+
+      return true;
+    });
+
+    setLastMatchCount(filtered.length);
+
+    filtered.sort((a, b) => getAverageRating(b) - getAverageRating(a));
+
+    if (filtered.length) {
+      const top = filtered.slice(0, Math.min(5, filtered.length));
+      const random = top[Math.floor(Math.random() * top.length)];
+      setRecommendation(random);
+    }
+
+    setIsGettingRecommendation(false);
+  };
+
+  const recommendationDistance = useMemo(() => {
+    if (!recommendation || !location) return null;
+    return calculateDistance(
+      location.latitude,
+      location.longitude,
+      recommendation.latitude,
+      recommendation.longitude
+    ).toFixed(1);
+  }, [recommendation, location]);
+
+  // ---------------------------
+  // UI
+  // ---------------------------
   return (
-    <div className="container mx-auto max-w-md p-4">
-      <h2 className="text-2xl font-semibold text-center mb-4">Find a recommendation for your next meal!</h2>
+    <div className="max-w-xl mx-auto mt-12 px-8 py-10 bg-white rounded-2xl shadow-xl space-y-8">
 
-      {error ? (
-        <p className="text-red-500">Error fetching location: {error}</p>
-      ) : loading ? (
-        <p>Loading your location...</p>
-      ) : (
-        <p className="text-center text-gray-700">
-          Your location: {location?.latitude}, {location?.longitude}
+      {/* Header */}
+      <div className="text-center space-y-3 border-b pb-6">
+        <div className="flex justify-center items-center gap-2">
+          <Sparkles className="w-7 h-7 text-yellow-500" />
+          <h2 className="text-3xl font-bold text-slate-800">Surprise Me</h2>
+        </div>
+        <p className="text-slate-500 text-sm">
+          Let us find you a great restaurant nearby.
         </p>
-      )}
+      </div>
 
-      {/* Toggle More Options */}
-      <div
-        className="flex justify-center items-center cursor-pointer mt-4"
-        onClick={() => setShowOptions(!showOptions)}
-      >
-        <span className="text-sm text-gray-500">More Options</span>
-        {showOptions ? (
-          <ChevronUpIcon className="w-6 h-6 ml-2 text-gray-500" />
-        ) : (
-          <ChevronDownIcon className="w-6 h-6 ml-2 text-gray-500" />
+      {/* Location */}
+      <div>
+        {loading && (
+          <p className="text-center text-slate-500 bg-slate-100 p-3 rounded">
+            Detecting your location...
+          </p>
+        )}
+
+        {error && (
+          <p className="text-center text-red-500 bg-red-50 p-3 rounded">
+            Location error: {error}
+          </p>
+        )}
+
+        {location && (
+          <p className="text-center text-slate-600 bg-slate-100 p-3 rounded flex justify-center items-center gap-2">
+            <MapPin className="w-4 h-4" />
+            Searching near you
+          </p>
         )}
       </div>
 
-      {/* Extra Options */}
+      {/* Filters Toggle */}
+      <div
+        className="flex justify-center items-center cursor-pointer p-2 rounded hover:bg-slate-100 transition"
+        onClick={() => setShowOptions(!showOptions)}
+      >
+        <span className="text-sm text-slate-600">Filters</span>
+        {showOptions ? (
+          <ChevronUpIcon className="w-5 h-5 ml-2 text-slate-600" />
+        ) : (
+          <ChevronDownIcon className="w-5 h-5 ml-2 text-slate-600" />
+        )}
+      </div>
+
+      {/* Filters */}
       {showOptions && (
-        <div className="mt-4 space-y-4">
+        <div className="space-y-5 p-5 bg-slate-100 rounded-lg">
+
+          {/* Cuisine */}
           <div>
-            <label className="block text-sm font-medium mb-1">Have you been there before?</label>
-            <Select value={beenTo} onValueChange={(value) => setBeenTo(value)}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select an option" />
+            <label className="block text-sm font-medium mb-1">Cuisine</label>
+            <Select value={cuisine} onValueChange={setCuisine}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select cuisine" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="haven’t">I haven’t been there</SelectItem>
-                <SelectItem value="been">I’ve been there</SelectItem>
+                <SelectItem value="any">Any</SelectItem>
+                {cuisines.map((c: any, idx: number) => {
+                  const value = typeof c === 'string' ? c : c.name;
+                  return (
+                    <SelectItem key={`${value}-${idx}`} value={value}>
+                      {value}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
 
+          {/* Distance */}
           <div>
-            <label className="block text-sm font-medium mb-1">Select a cuisine:</label>
-            <Select value={cuisine} onValueChange={(value) => setCuisine(value)}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a cuisine" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="any">Any cuisine</SelectItem>
-                {cuisines.map((cuisine) => (
-                  <SelectItem key={cuisine} value={cuisine}>
-                    {cuisine}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Select distance (in km):</label>
+            <label className="block text-sm font-medium mb-2">
+              Distance: {distance} km
+            </label>
             <Slider
               value={[distance]}
               min={1}
-              max={100}
+              max={50}
               step={1}
-              onValueChange={(value) => setDistance(value[0])}
-              className="mt-2"
+              onValueChange={(v) => setDistance(v[0])}
             />
-            <p className="text-sm text-gray-500 mt-1">Distance: {distance} km</p>
           </div>
         </div>
       )}
 
-      {/* Recommendation Button */}
-      <Button className="mt-6 w-full" onClick={handleGetRecommendation}>
-        Get Recommendation
+      {/* Button */}
+      <Button
+        className="w-full text-lg py-6"
+        onClick={handleGetRecommendation}
+        disabled={isGettingRecommendation}
+      >
+        {isGettingRecommendation ? 'Finding you something amazing…' : 'Surprise Me'}
       </Button>
 
-      {/* Recommendation Display */}
+      {/* Result */}
       {recommendation && (
-        <div className="mt-6">
-          <h3 className="text-lg font-semibold">Your Recommendation:</h3>
-          <p>{recommendation}</p>
+        <div className="pt-6 border-t">
+          <p className="text-sm text-slate-500 mb-3 text-center">
+            We searched {lastMatchCount} places nearby and picked one of the best.
+          </p>
+
+          <Card className="shadow-lg">
+            <CardHeader className="pb-2">
+              <h3 className="text-xl font-bold">{recommendation.name}</h3>
+              <StarRating rating={getAverageRating(recommendation)} readOnly size="sm" />
+            </CardHeader>
+
+            <CardContent className="space-y-3">
+              <p className="flex items-center gap-2 text-slate-600">
+                <MapPin className="w-4 h-4" />
+                {recommendation.address}
+              </p>
+
+              <p className="text-sm text-slate-600">
+                <strong>Cuisine:</strong> {recommendation.cuisine.join(', ')}
+              </p>
+
+              {recommendationDistance && (
+                <p className="text-sm text-slate-600">
+                  <strong>Distance:</strong> {recommendationDistance} km away
+                </p>
+              )}
+
+              <Link href={`/restaurants/${recommendation.id}`}>
+                <Button className="w-full mt-3">View Restaurant</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Empty */}
+      {!recommendation && lastMatchCount === 0 && (
+        <div className="text-center text-slate-600 bg-slate-100 p-4 rounded">
+          No restaurants found nearby. Try increasing your distance.
         </div>
       )}
     </div>

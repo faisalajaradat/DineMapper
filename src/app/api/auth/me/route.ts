@@ -1,23 +1,25 @@
-import { NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
+export const runtime = "nodejs";
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
+import { cookies } from "next/headers";
+import { jwtVerify } from "jose";
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const cookie = request.headers.get('cookie');
-    const authToken = cookie?.split('; ').find(c => c.startsWith('authToken='))?.split('=')[1];
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET!);
+    if (!secret) throw new Error("JWT_SECRET missing");
 
-    if (!authToken) {
-      return NextResponse.json({ message: 'No auth token found' }, { status: 401 });
+    const cookieStore = await cookies();
+    const token = cookieStore.get("authToken")?.value;
+
+    if (!token) {
+      return Response.json({ message: "No auth token" }, { status: 401 });
     }
 
-    // Verify JWT token
-    const decoded = jwt.verify(authToken, JWT_SECRET);
-    console.log('Decoded token:', decoded);
-    // Return user info
-    return NextResponse.json({ message: 'Authenticated', user: decoded }, { status: 200 });
-  } catch (error) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    const { payload } = await jwtVerify(token, secret);
+
+    return Response.json({ message: "Authenticated", user: payload });
+  } catch (err) {
+    console.error("ME route error:", err);
+    return Response.json({ message: "Unauthorized" }, { status: 401 });
   }
 }

@@ -1,30 +1,52 @@
-import { NextResponse } from 'next/server';
-import { getRestaurantById, updateRestaurant, deleteRestaurant } from '@/lib/database';
+import { NextRequest, NextResponse } from 'next/server';
+import { 
+  initModel,
+  getRestaurantById,
+  getRatingsByRestaurantId
+} from '@/lib/database';
 
-export async function GET(request: Request, props: { params: Promise<{ id: string }> }) {
-  const params = await props.params;
-  const restaurant = await getRestaurantById(parseInt(params.id));
-  if (restaurant) {
-    return NextResponse.json(restaurant);
-  }
-  return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 });
-}
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  await initModel();
 
-export async function PUT(request: Request, props: { params: Promise<{ id: string }> }) {
-  const params = await props.params;
-  const data = await request.json();
-  const updatedRestaurant = await updateRestaurant(parseInt(params.id), data);
-  if (updatedRestaurant) {
-    return NextResponse.json(updatedRestaurant);
-  }
-  return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 });
-}
+  try {
+    // ✅ Next.js 15 requires awaiting params
+    const { id } = await params;
+    const restaurantId = parseInt(id, 10);
 
-export async function DELETE(request: Request, props: { params: Promise<{ id: string }> }) {
-  const params = await props.params;
-  const result = await deleteRestaurant(parseInt(params.id));
-  if (result) {
-    return NextResponse.json({ message: 'Restaurant deleted successfully' });
+    if (isNaN(restaurantId)) {
+      return NextResponse.json(
+        { error: 'Invalid restaurant ID' },
+        { status: 400 }
+      );
+    }
+
+    // Fetch the restaurant
+    const restaurant = await getRestaurantById(restaurantId);
+
+    if (!restaurant) {
+      return NextResponse.json(
+        { error: 'Restaurant not found' },
+        { status: 404 }
+      );
+    }
+
+    // Fetch ratings separately
+    const ratings = await getRatingsByRestaurantId(restaurantId);
+
+    // Respond with clean API shape
+    return NextResponse.json({
+      restaurant,
+      ratings
+    });
+
+  } catch (error) {
+    console.error('❌ Failed to fetch restaurant details:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch restaurant details' },
+      { status: 500 }
+    );
   }
-  return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 });
 }

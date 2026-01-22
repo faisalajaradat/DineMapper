@@ -13,17 +13,17 @@ export default function Navbar() {
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   const linkStyle = (path: string) => {
-    const baseStyle = 'font-bold hover:text-blue-500 transition-colors duration-200';
-    const activeStyle = 'text-blue-500 underline underline-offset-4';
-    return pathname === path ? `${baseStyle} ${activeStyle}` : `${baseStyle} text-black`;
+    const baseStyle = 'font-bold hover:text-blue-600 transition-colors duration-200';
+    const activeStyle = 'text-blue-600 underline underline-offset-4';
+    return pathname === path ? `${baseStyle} ${activeStyle}` : `${baseStyle} text-gray-800`;
   };
 
   return (
-    <nav className="bg-slate-300 p-4">
-      {loading ? <span>Loading...</span> : (
+    <nav className="bg-white p-4 shadow-sm border-b border-gray-200">
+      {loading ? <span className="text-blue-600">Loading...</span> : (
         <div className="h-[7vh] container mx-auto flex justify-between items-center px-0">
           <div className='flex-nowrap flex items-center'>
-            <Link href="/" className="text-black text-2xl mr-10 font-bold hover:text-blue-500">
+            <Link href="/" className="text-blue-700 text-2xl mr-10 font-bold hover:text-blue-600">
               DineMapper
             </Link>
             <div className='hidden md:flex space-x-4'>
@@ -43,7 +43,7 @@ export default function Navbar() {
                       height={40}
                       alt="default profile pic"
                       style={{ cursor: 'pointer', userSelect: 'none' }}
-                      className='hover:border-solid hover:border-black hover:border rounded-full transition-all duration-200'
+                      className='hover:border-solid hover:border-blue-400 hover:border rounded-full transition-all duration-200'
                     />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
@@ -56,10 +56,10 @@ export default function Navbar() {
               </div>
             ) : (
               <div className='hidden md:flex'>
-                <Link href="/signin" className="bg-slate-400 text-black mr-4 px-4 py-2 rounded hover:text-blue-200">
+                <Link href="/signin" className="bg-gray-100 text-gray-700 mr-4 px-4 py-2 rounded hover:bg-gray-200">
                   Sign In
                 </Link>
-                <Link href="/signup" className="bg-blue-400 text-white px-4 py-2 rounded hover:bg-blue-100">
+                <Link href="/signup" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
                   Sign Up
                 </Link>
               </div>
@@ -69,7 +69,7 @@ export default function Navbar() {
            {/* Mobile Hamburger Menu */}
            <div className="md:hidden ">
             <button
-              className="text-black focus:outline-none"
+              className="text-gray-800 focus:outline-none"
               onClick={() => setMobileMenuOpen(!isMobileMenuOpen)}
             >
               <svg
@@ -91,7 +91,7 @@ export default function Navbar() {
 
           {/* Mobile Menu Content */}
           {isMobileMenuOpen && (
-            <div className="absolute top-16 left-0 w-full bg-slate-300 flex flex-col p-4 space-y-4 shadow-md z-10">
+            <div className="absolute top-16 left-0 w-full bg-white flex flex-col p-4 space-y-4 shadow-md z-10 border-b border-gray-200">
               <Link href="/home" className={linkStyle('/home')} onClick={() => setMobileMenuOpen(false)}>
                 Home
               </Link>
@@ -109,20 +109,16 @@ export default function Navbar() {
                 </>
               ) : (
                 <div className='flex space-x-2 justify-end w-100'>
-
-
-                <Link href="/signin" className="bg-slate-400 text-black mr-4 hover:text-blue-200 px-4 py-2 rounded" onClick={() => setMobileMenuOpen(false)}>
-                  Sign In
-                </Link>
-                <Link href="/signup" className="bg-blue-400 text-white px-4 py-2 rounded hover:bg-blue-100" onClick={() => setMobileMenuOpen(false)}>
-                  Sign Up
-                </Link>
+                  <Link href="/signin" className="bg-gray-100 text-gray-700 hover:bg-gray-200 px-4 py-2 rounded" onClick={() => setMobileMenuOpen(false)}>
+                    Sign In
+                  </Link>
+                  <Link href="/signup" className="bg-blue-600 text-white hover:bg-blue-700 px-4 py-2 rounded" onClick={() => setMobileMenuOpen(false)}>
+                    Sign Up
+                  </Link>
                 </div>
               )}
             </div>
           )}
-
-
         </div>
       )}
     </nav>
