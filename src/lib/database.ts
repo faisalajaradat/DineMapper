@@ -79,7 +79,7 @@ export const initModel = async () => {
     as: 'ratings'
   });
 
-  await sequelize.sync({ force: true });
+  await sequelize.sync({ force: false });
   console.log('Models synchronized.');
 };
 
