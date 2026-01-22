@@ -267,3 +267,34 @@ export const getRatingsByRestaurantId = async (restaurantId: number) => {
 
   return ratings.map(r => r.get({ plain: true }));
 };
+
+// -----------------------------
+// AUTH
+// -----------------------------
+export const authenticateToken = async (req: Request) => {
+  const authHeader = req.headers.get('authorization');
+  if (!authHeader) return null;
+
+  const token = authHeader.split(' ')[1];
+  if (!token) return null;
+
+  const payload = await verifyToken(token);
+  if (!payload) return null;
+
+  const user = await User.findOne({ where: { uuid: payload.id } });
+  return user ? user.get({ plain: true }) : null;
+};
+
+
+// -----------------------------
+// UPDATE USER
+// -----------------------------
+export const updateUser = async (uuid: string, data: any) => {
+  await initModel();
+
+  const user = await User.findOne({ where: { uuid } });
+  if (!user) return null;
+
+  await user.update(data);
+  return user.get({ plain: true });
+};

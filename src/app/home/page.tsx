@@ -66,9 +66,7 @@ export default function HomePage() {
     const filtered = restaurants.filter(restaurant =>
       restaurant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       restaurant.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      restaurant.cuisine.some(c => c.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      restaurant.meal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (restaurant.notes && restaurant.notes.toLowerCase().includes(searchTerm.toLowerCase()))
+      restaurant.cuisine.some(c => c.toLowerCase().includes(searchTerm.toLowerCase())) 
     );
     setFilteredRestaurants(filtered);
   }, [searchTerm, restaurants]);

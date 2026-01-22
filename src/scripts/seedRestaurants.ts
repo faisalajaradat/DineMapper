@@ -1,5 +1,5 @@
 // scripts/seedRestaurants.ts
-import { initModel, createRestaurant } from "../src/lib/database";
+import { initModel, createRestaurant } from "../lib/database";
 
 // -----------------------
 // Helper: Extract cuisine

@@ -1,5 +1,5 @@
 // scripts/runScript.ts
-import { seedRestaurantsForCity } from './seedRestaurants';
+import { seedRestaurantsForCity } from '../src/scripts/seedRestaurants';
 
 // This function can be called from an API route or admin interface
 export async function runSeedingScript(city: string, limit: number = 50) {

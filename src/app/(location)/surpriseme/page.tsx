@@ -1,27 +1,32 @@
-// src/components/Surpriseme.tsx
 'use client';
 
 import { useLocation } from '@/contexts/LocationContext';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem
+} from '@/components/ui/select';
 import { ChevronDownIcon, ChevronUpIcon, MapPin, Sparkles } from 'lucide-react';
-import { RestaurantWithAggregate } from '@/models/Restaurant';
+import { RestaurantWithAggregate, Cuisine } from '@/models/Restaurant';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import StarRating from '@/components/starRating';
-import { cuisines } from '../../../utils/CuisineOptions';
+import { CUISINE_OPTIONS } from '@/lib/constants';
 
 export default function Surpriseme() {
   const { location, error, loading } = useLocation();
 
-  const [distance, setDistance] = useState(20);
-  const [showOptions, setShowOptions] = useState(false);
-  const [cuisine, setCuisine] = useState<string>('any');
+  const [distance, setDistance] = useState<number>(20);
+  const [showOptions, setShowOptions] = useState<boolean>(false);
+  const [cuisine, setCuisine] = useState<Cuisine | 'any'>('any');
   const [recommendation, setRecommendation] = useState<RestaurantWithAggregate | null>(null);
   const [allRestaurants, setAllRestaurants] = useState<RestaurantWithAggregate[]>([]);
-  const [isGettingRecommendation, setIsGettingRecommendation] = useState(false);
+  const [isGettingRecommendation, setIsGettingRecommendation] = useState<boolean>(false);
   const [lastMatchCount, setLastMatchCount] = useState<number | null>(null);
 
   // ---------------------------
@@ -42,14 +47,20 @@ export default function Surpriseme() {
   // ---------------------------
   const deg2rad = (deg: number) => deg * (Math.PI / 180);
 
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const calculateDistance = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ) => {
     const R = 6371;
     const dLat = deg2rad(lat2 - lat1);
     const dLon = deg2rad(lon2 - lon1);
     const a =
       Math.sin(dLat / 2) ** 2 +
-      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
-      Math.sin(dLon / 2) ** 2;
+      Math.cos(deg2rad(lat1)) *
+        Math.cos(deg2rad(lat2)) *
+        Math.sin(dLon / 2) ** 2;
     return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
   };
 
@@ -166,20 +177,17 @@ export default function Surpriseme() {
           {/* Cuisine */}
           <div>
             <label className="block text-sm font-medium mb-1">Cuisine</label>
-            <Select value={cuisine} onValueChange={setCuisine}>
+            <Select value={cuisine} onValueChange={(v) => setCuisine(v as Cuisine | 'any')}>
               <SelectTrigger>
                 <SelectValue placeholder="Select cuisine" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="any">Any</SelectItem>
-                {cuisines.map((c: any, idx: number) => {
-                  const value = typeof c === 'string' ? c : c.name;
-                  return (
-                    <SelectItem key={`${value}-${idx}`} value={value}>
-                      {value}
-                    </SelectItem>
-                  );
-                })}
+                {CUISINE_OPTIONS.map(c => (
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -217,7 +225,7 @@ export default function Surpriseme() {
           </p>
 
           <Card className="shadow-lg">
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-2 space-y-1">
               <h3 className="text-xl font-bold">{recommendation.name}</h3>
               <StarRating rating={getAverageRating(recommendation)} readOnly size="sm" />
             </CardHeader>

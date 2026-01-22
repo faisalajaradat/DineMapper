@@ -1,39 +1,53 @@
-import { NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
+import { NextResponse } from "next/server";
+import { jwtVerify } from "jose";
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key'; // Ensure you have this set in your environment variables
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET is not defined");
+}
+
+const secret = new TextEncoder().encode(JWT_SECRET);
+
+type JwtPayload = {
+  uuid: string;
+  email: string;
+};
 
 export async function POST(req: Request) {
   try {
-    // Get the Authorization header
-    const authHeader = req.headers.get('authorization');
+    const authHeader = req.headers.get("authorization");
 
-    if (!authHeader) {
-      return NextResponse.json({ message: 'Authorization header missing' }, { status: 401 });
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json(
+        { message: "Authorization header missing or malformed" },
+        { status: 401 }
+      );
     }
 
-    // The token is expected to be in the format: "Bearer <token>"
-    const token = authHeader.split(' ')[1];
+    const token = authHeader.replace("Bearer ", "").trim();
 
     if (!token) {
-      return NextResponse.json({ message: 'Token missing' }, { status: 401 });
+      return NextResponse.json({ message: "Token missing" }, { status: 401 });
     }
 
-    // Verify the token
-    const decoded = jwt.verify(token, JWT_SECRET);
+    // Verify JWT using jose
+    const { payload } = await jwtVerify(token, secret);
 
-    if (!decoded) {
-      return NextResponse.json({ message: 'Invalid token' }, { status: 401 });
+    const { uuid, email } = payload as JwtPayload;
+
+    if (!uuid || !email) {
+      return NextResponse.json({ message: "Invalid token" }, { status: 401 });
     }
 
-    // Optionally, you could fetch the user from the database if needed
-    // Assuming the token contains the user's ID and email
-    const { id, email } = decoded as { id: number; email: string };
-
-    // Respond with the user information
-    return NextResponse.json({ user: { id, email } }, { status: 200 });
-  } catch (error) {
-    console.error('Error verifying token:', error);
-    return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      {
+        user: { uuid, email },
+      },
+      { status: 200 }
+    );
+  } catch (err) {
+    console.error("JWT verification failed:", err);
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 }

@@ -208,18 +208,19 @@ const RestaurantForm: React.FC<RestaurantFormProps> = ({ onSubmit, onClose, clas
     if (name === 'cuisine') {
       setFormData(prev => ({
         ...prev,
-        [name]: value.split(',').map(item => item.trim())
+        cuisine: value
+          .split(',')
+          .map(item => item.trim())
+          .filter(Boolean) as Cuisine[]
       }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
-  };
+      return;
+    }}
 
-  const handleCuisineChange = (cuisines: Cuisine[]) => {
-    setFormData(prev => ({ ...prev, cuisine: cuisines }));
+  const handleCuisineChange = (cuisines: string[]) => {
+    setFormData(prev => ({
+      ...prev,
+      cuisine: cuisines as Cuisine[]
+    }));
   };
 
   const handleRatingChange = (ratingType: 'rating_service' | 'rating_foodquality' | 'rating_ambiance') => (newRating: number) => {

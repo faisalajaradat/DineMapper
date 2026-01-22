@@ -1,6 +1,6 @@
 import React from 'react';
 import Image from 'next/image';
-import { RestaurantAttributes } from '@/models/Restaurant';
+import { RestaurantAttributes, RestaurantWithAggregate } from '@/models/Restaurant';
 import { getAllRestaurants } from '@/lib/database';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -9,8 +9,9 @@ import { renderCuisine } from '@/utils/renderCuisine';
 import { MapPin, Star, TrendingUp, Clock, Award } from 'lucide-react';
 
 // Helper function to calculate average rating
-const getAverageRating = (restaurant: RestaurantAttributes): number => {
-  return (restaurant.rating_ambiance + restaurant.rating_foodquality + restaurant.rating_service) / 3;
+const getAverageRating = (restaurant: RestaurantWithAggregate): number => {
+  if (!restaurant.aggregate) return 0;
+  return restaurant.aggregate.avg_overall / 2; // convert 10-point scale → 5-star
 };
 
 export default async function HomePage() {

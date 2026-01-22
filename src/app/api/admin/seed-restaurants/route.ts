@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { seedRestaurantsForCity } from '@/../../scripts/seedRestaurants';
+import { seedRestaurantsForCity } from '@/scripts/seedRestaurants';
 
 export async function POST(request: NextRequest) {
   try {
