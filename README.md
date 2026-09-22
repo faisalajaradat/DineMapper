@@ -1,6 +1,10 @@
 # DineMapper
 
-DineMapper is a restaurant-tracking app for saving places you have visited, rating your experiences, and finding a nearby option when you cannot decide where to eat.
+DineMapper is a personal restaurant journal and local discovery tool. It gives diners one place to record where they have eaten, capture what they thought of each visit, and confidently choose where to eat next.
+
+As a user, you can add restaurants you have tried, rate the food, service, and ambiance, and revisit a map and list of your experiences. When you are undecided, **Surprise Me** uses your location, preferred cuisine, and distance to recommend one of the better-rated places nearby.
+
+From a business perspective, DineMapper is the foundation for a restaurant-discovery product: it turns individual dining feedback into aggregate restaurant scores, makes that information easy to browse geographically, and supports curated local restaurant data through Google Places. It could serve as the basis for a consumer dining app, a local food guide, or a customer-feedback experience.
 
 Built with Next.js, TypeScript, Tailwind CSS, Sequelize, and PostgreSQL.
 
