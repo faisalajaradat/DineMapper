@@ -1,136 +1,212 @@
 # DineMapper
 
-DineMapper is a personal restaurant journal and local discovery tool. It gives diners one place to record where they have eaten, capture what they thought of each visit, and confidently choose where to eat next.
+### Remember where you ate. Decide where to eat next.
 
-As a user, you can add restaurants you have tried, rate the food, service, and ambiance, and revisit a map and list of your experiences. When you are undecided, **Surprise Me** uses your location, preferred cuisine, and distance to recommend one of the better-rated places nearby.
+DineMapper is a restaurant journal and local discovery prototype for diners who want to revisit past experiences and spend less time choosing their next meal. It brings restaurant browsing, geographic context, dining feedback, and a nearby recommendation into one experience.
 
-From a business perspective, DineMapper is the foundation for a restaurant-discovery product: it turns individual dining feedback into aggregate restaurant scores, makes that information easy to browse geographically, and supports curated local restaurant data through Google Places. It could serve as the basis for a consumer dining app, a local food guide, or a customer-feedback experience.
+**Product hypothesis:** combining a personal dining history with a small, relevant set of choices can make restaurant discovery more useful than browsing an undifferentiated list. This is a hypothesis to validate—not a claim of proven engagement or business impact.
 
-Built with Next.js, TypeScript, Tailwind CSS, Sequelize, and PostgreSQL.
+[Product walkthrough](#product-walkthrough) · [Product decisions](#product-decisions-and-tradeoffs) · [Success metrics](#how-success-would-be-measured) · [Run locally](#run-locally)
 
-## Features
+## The user problem
 
-- Create an account and sign in with JWT-based authentication.
-- Add restaurants with address, cuisine, price range, contact details, coordinates, and a personal rating.
-- Score service, food quality, and ambiance; DineMapper calculates aggregate restaurant ratings.
-- Browse restaurant cards and detailed restaurant pages.
-- View saved restaurants on an interactive map.
-- Use **Surprise Me** to choose a highly rated restaurant near the current location, with cuisine and distance filters.
-- Seed restaurants for a city from the Google Places API.
+A diner has two related needs: “What did I think of the places I've tried?” and “Where should I go tonight?” A saved name alone does not capture the experience, and a long list of restaurants does not necessarily make the next decision easier.
+
+DineMapper is designed for repeat local diners and people exploring a city. Its intended value is a shorter path from discovery to a decision, with food, service, and ambiance feedback that makes past visits easier to remember.
+
+From a business perspective, the opportunity is repeat use around a recurring decision. City-level imports provide initial restaurant coverage; diner contributions could make that catalog more useful over time. Acquisition, retention, willingness to contribute, and monetization have not been validated.
 
 ## Product walkthrough
 
-The main user journey is designed to move from discovery to a confident dining decision:
+**Discover → compare → choose → record an experience → return.**
 
-![DineMapper landing page](public/homepage-img.jpeg)
+These are actual captures of the local prototype with imported Montreal listings and a dedicated demo account. The personal dashboard includes two fictional sample restaurants with seeded ratings for demonstration; these are not real restaurant reviews. Imported listings are not evidence of active users; unrated listings should not be interpreted as poor reviews. No usage or outcome metrics are claimed.
 
-- **Landing page** — introduces DineMapper and the restaurant-journal workflow.
-- **Restaurant list** — browse saved restaurants as cards with ratings and key details at [`/restaurants/list`](http://localhost:3000/restaurants/list).
-- **Map view** — see restaurants geographically, with clickable pins and detail popovers at [`/restaurants/map`](http://localhost:3000/restaurants/map).
-- **Surprise Me** — use location, cuisine, and distance preferences to get a nearby recommendation at [`/surpriseme`](http://localhost:3000/surpriseme).
+### 1. Discover: landing page
 
-These routes are available after starting the development server with `npm run dev`.
+The landing page introduces the journal, summarizes the catalog, and provides entry points into browsing and contributing. Top-rated and recently added sections make restaurants accessible from the first screen.
 
-## Tech stack
+![DineMapper landing page showing the product introduction and restaurant statistics](docs/screenshots/landing.jpg)
 
-- [Next.js](https://nextjs.org/) 16 and React 19
-- TypeScript
-- Tailwind CSS and Radix UI
-- PostgreSQL and Sequelize
-- Google Maps / Places API and Leaflet
-- Zod, React Hook Form, and `jose`
+### 2. Compare: restaurant list and map
 
-## Prerequisites
+Cards offer a scannable view of names, addresses, cuisines, and aggregate ratings. The map provides geographic context, with clickable pins that link to restaurant details.
 
-- Node.js 20.9 or later
-- npm
-- A PostgreSQL database
-- A Google Maps API key with Maps JavaScript, Geocoding, and Places APIs enabled (required for maps and restaurant seeding)
+![Montreal restaurant cards with addresses, cuisines, and rating indicators](docs/screenshots/restaurants.jpg)
 
-## Getting started
+![Montreal map with restaurant pins and an open Five Guys address popup](docs/screenshots/map.jpg)
 
-1. Clone the repository and install dependencies:
+### 3. Choose: Surprise Me
 
-   ```bash
-   git clone <repository-url>
-   cd NextJS-Restaurant
-   npm install
-   ```
+Choose a cuisine and a distance from 1–50 km, then request a suggestion. The app filters restaurants by straight-line distance and cuisine, sorts matches by aggregate rating, and randomly selects one of the top five (or all matches if fewer than five exist). The result provides the address, distance, and a link to restaurant details.
 
-2. Create a PostgreSQL database and add a `.env` file in the project root:
+This is a rule-based recommendation, not AI or personalization based on dining history. Restaurants without aggregate ratings receive a score of zero in the ranking and remain eligible. Location access and nearby catalog coverage are required.
 
-   ```env
-   DB_USERNAME=postgres
-   DB_PASSWORD=your_database_password
-   DB_DATABASE=dinemapper
-   DB_HOST=localhost
-   DB_PORT=5432
-   JWT_SECRET=replace_with_a_long_random_secret
-   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
-   ```
+<!-- Successful recommendation screenshot pending capture and approval; do not substitute an error screen. -->
 
-3. Apply the database migrations:
+### 4. Record and revisit: dashboard and rating form
 
-   ```bash
-   npm run db:migrate
-   ```
+After sign-in, the personal dashboard lists restaurants associated with the user's ratings and supports search by name, address, or cuisine. Its **+** control opens a form for restaurant details, cuisine, meal, food quality, service, ambiance, and notes.
 
-4. Start the development server:
+These screenshots show a populated demo dashboard and the form interface. The two sample entries and their ratings were seeded directly into the local database; they do not demonstrate a successful form submission. A sample save returned an error during capture; see [prototype limitations](#prototype-status-and-limitations).
 
-   ```bash
-   npm run dev
-   ```
-
-5. Visit [http://localhost:3000](http://localhost:3000).
-
-## Database commands
-
-| Command | Description |
+| Personal dashboard | Add restaurant and ratings |
 | --- | --- |
-| `npm run db:migrate` | Run pending Sequelize migrations. |
-| `npm run db:migrate:undo` | Revert the latest migration. |
-| `npm run db:migrate:undo:all` | Revert all migrations. |
-| `npm run db:seed` | Run Sequelize seeders, if present. |
-| `npm run db:reset` | Recreate the schema by reverting and rerunning migrations and seeders. |
+| ![Demo dashboard populated with two sample restaurants, aggregate star ratings, search, and an add control](docs/screenshots/dashboard.jpg) | ![Restaurant form with cuisine, meal, three rating categories, and notes](docs/screenshots/add-rating.jpg) |
+| Revisit rated restaurants: Demo Bistro and Maple Table are fictional examples. | Capture multiple aspects of a dining experience. |
 
-## Seed restaurants from Google Places
+### Supporting pages
 
-After configuring `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, seed up to 50 restaurants near a city:
+| Restaurant details | Profile |
+| --- | --- |
+| ![Rated Demo Bistro sample restaurant details with cuisine, sample contact information, and price range](docs/screenshots/details.jpg) | ![Demo account profile with an email update field](docs/screenshots/profile.jpg) |
+| Inspect a rated sample's restaurant information. Ratings appear on dashboard/list cards; this detail layout does not yet display them. Contact details are fictional placeholders. | View account information and access the email update control. |
+
+| Sign up | Sign in |
+| --- | --- |
+| ![Sign-up form with email, password, and confirmation](docs/screenshots/signup.jpg) | ![Sign-in form with email and password](docs/screenshots/signin.jpg) |
+| Create an account for the personal journal. | Return to the personal dashboard. |
+
+<details>
+<summary>Catalog operations: admin restaurant import</summary>
+
+The admin page accepts a city and restaurant limit for Google Places import, establishing catalog coverage before users contribute. This capture shows the controls; no paid import was submitted for it.
+
+![Admin import page with Montreal entered and a restaurant limit of 50](docs/screenshots/admin.jpg)
+
+</details>
+
+### Page directory
+
+These are application routes, not hosted demo links. Review the screenshots directly on GitHub without running the app.
+
+| Page | Route | Current role |
+| --- | --- | --- |
+| Landing | `/` | Product introduction and catalog discovery |
+| Restaurant list | `/restaurants/list` | Browse restaurant cards |
+| Interactive map | `/restaurants/map` | Explore pins and open details |
+| Restaurant details | `/restaurants/[id]` | Inspect one restaurant |
+| Surprise Me | `/surpriseme` | Request a nearby recommendation |
+| Personal dashboard | `/home` | Search rated restaurants; open the add/rating dialog |
+| Standalone add page | `/restaurants/add` | Placeholder heading; the form is in the dashboard's **+** control |
+| Sign up | `/signup` | Account registration |
+| Sign in | `/signin` | Account authentication |
+| Profile | `/profile` | Account information and email update control |
+| Admin import | `/admin` | City-based catalog import controls |
+
+## Product decisions and tradeoffs
+
+These are interpretations of the implementation, not claims about a documented research process.
+
+| Decision | User value | Tradeoff to validate |
+| --- | --- | --- |
+| List and map browsing | Support quick comparison and geographic exploration | Map usefulness depends on coordinates and a sensible starting area |
+| Food, service, and ambiance ratings | Capture more context about an experience | Extra inputs may increase contribution effort |
+| One suggestion from the top five matches | Reduce choices while allowing variety | Sparse ratings weaken ranking; repetition remains possible |
+| Cuisine and straight-line distance filters | Offer simple, understandable controls | Distance is not travel time; imported cuisine labels can be generic |
+| City catalog imports | Reduce the empty-catalog problem | Coverage alone does not provide trusted reviews or retention |
+
+## How success would be measured
+
+**Proposed measurement plan; analytics and results are not implemented or reported here.** Establish a baseline before setting improvement targets.
+
+| Question | Proposed metric | Interpretation |
+| --- | --- | --- |
+| Does it help people decide faster? | Median time from discovery entry to a confirmed restaurant choice in a usability task | A detail-page click alone is not proof of a dining decision |
+| Are suggestions useful? | Sessions opening suggested restaurant details ÷ sessions receiving a recommendation | Track empty results and location failures alongside this rate |
+| Can new users contribute? | New accounts saving a first restaurant/rating within seven days ÷ new accounts | Separate form starts, validation failures, and successful saves |
+| Does the journal encourage return visits? | Activated users returning for a discovery or journal action within seven days ÷ activated users | Define activation as a first successful contribution, not account creation |
+
+## What to validate next
+
+1. **Complete the contribution journey.** Resolve the standalone add-page gap, manual name entry, and save failure before measuring activation.
+2. **Test recommendation usefulness.** Observe whether diners accept a suggestion, request another, or abandon; compare rated and unrated candidates.
+3. **Reduce location friction.** Test denied permissions and out-of-coverage users; evaluate a manual city/location fallback.
+4. **Improve catalog quality.** Check cuisine specificity, missing information, and local density before expanding to more cities.
+
+## Prototype status and limitations
+
+This is a product prototype, not a production-readiness claim. Browsing, map pins, detail pages, and demo-account sign-in were observed locally during documentation review.
+
+- `/restaurants/add` renders a heading without the form. The form opens through **+** on `/home`, but manual name input does not update state, and a sample save returned an error in the capture environment.
+- Recommendations need location access and nearby restaurants. The in-app browser could not obtain location; another browser obtained it but found no nearby matches. A successful result screenshot remains pending.
+- The map falls back to London when location is unavailable, even for a Montreal catalog. The screenshot was panned to the imported listings.
+- Seeded listings may have generic cuisine labels and no ratings. “Highest rated” does not establish review quality when all entries are unrated.
+- Open Profile through the signed-in account menu; a direct visit can redirect during authentication loading.
+- The admin import endpoint currently has no role check. Access control needs attention before public exposure.
+
+## Technical overview
+
+Next.js 16, React 19, TypeScript, Tailwind CSS, and Radix UI provide the application interface. PostgreSQL and Sequelize store users, restaurants, ratings, and aggregates. Authentication uses signed tokens in an HTTP-only cookie.
+
+**Map display:** Leaflet / React Leaflet with OpenStreetMap tiles; no Google key is needed for map display. **Import and address autocomplete:** Google Places and Geocoding services.
+
+## Run locally
+
+Prerequisites: Node.js 20.9 or later, npm, and PostgreSQL. Google-backed import and autocomplete also require a configured Google Maps API key.
+
+```bash
+git clone https://github.com/janabjaradat/DineMapper.git
+cd DineMapper
+npm install
+```
+
+Create a PostgreSQL role and database, then create a private `.env` matching them:
+
+```env
+DB_USERNAME=your_postgres_role
+DB_PASSWORD=your_database_password
+DB_DATABASE=dinemapper
+DB_HOST=127.0.0.1
+DB_PORT=5432
+JWT_SECRET=replace_with_a_long_random_secret
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+```
+
+```bash
+npm run db:migrate
+npm run dev
+```
+
+Open [localhost:3000](http://localhost:3000), or the port printed by the server. Run only one development instance per checkout. Keep `.env` out of version control.
+
+### Optional city import
+
+Enable the corresponding Google Places, Geocoding, and Maps JavaScript services for import and autocomplete. Import can incur Google API charges.
 
 ```bash
 npx tsx src/scripts/seedRestaurants.ts Montreal
 ```
 
-This calls the Google Geocoding and Places APIs, so it may incur usage charges under your Google Cloud project.
+The CLI imports up to 50 restaurants. The `seed:restaurants` npm shortcut points at a different path; use the command above.
 
-## Available scripts
+### Useful commands
 
-| Command | Description |
+| Command | Purpose |
 | --- | --- |
-| `npm run dev` | Start the development server with Turbopack. |
-| `npm run build` | Create a production build. |
-| `npm run start` | Serve the production build. |
-| `npm run lint` | Run the configured lint command. |
+| `npm run dev` | Start development server |
+| `npm run build` | Create production build |
+| `npm run start` | Serve production build |
+| `npm run db:migrate` | Apply pending migrations |
+| `npm run db:migrate:undo` | Revert latest migration |
+| `npm run db:seed` | Run configured Sequelize seeders |
 
-## Project structure
+The configured lint script uses `next lint`, unavailable in the installed Next.js 16 CLI; do not treat it as a passing check. Database rollback/reset commands can remove data; use only on a disposable development database.
+
+### Project structure
 
 ```text
-src/app/          App Router pages and API routes
-src/components/   Reusable UI and restaurant components
-src/contexts/     Location state and browser geolocation support
-src/hooks/        Authentication hooks
-src/lib/          Database, authentication, migrations, and shared helpers
+src/app/          Pages and API routes
+src/components/   Restaurant interfaces and reusable UI
+src/contexts/     Browser location state
+src/hooks/        Authentication state
+src/lib/          Database and authentication helpers
 src/models/       Sequelize models
-src/scripts/      Restaurant seeding script
-migrations/       Sequelize database migrations
+src/scripts/      City import script
+migrations/       Database migrations
+docs/screenshots/ Actual product screenshots
 ```
-
-## Notes
-
-- Keep `.env` private; it is intentionally excluded from version control.
-- The application uses browser geolocation for nearby suggestions. Users must allow the location permission for **Surprise Me** to work.
-- The map and seed features depend on the corresponding Google APIs being enabled for the configured key.
 
 ## License
 
-This project is private and does not currently specify a license.
+No license file is currently included in this repository.
