@@ -48,6 +48,7 @@
     "react-leaflet": "^5.0.0-rc.2",
     "react-select": "^5.8.0",
     "sequelize": "^6.37.3",
+    "server-only": "^0.0.1",
     "sqlite3": "^5.1.7",
     "tailwind-merge": "^2.4.0",
     "tailwindcss-animate": "^1.0.7",

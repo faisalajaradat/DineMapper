@@ -6,7 +6,6 @@ import Rating from '../models/Rating';
 import RestaurantAggregate from '../models/RestaurantAggregate';
 import User from '@/models/User';
 import bcrypt from 'bcryptjs';
-import { signToken, verifyToken } from "@/lib/auth";
 import config from '../../config/config.js';
 
 const env = process.env.NODE_ENV || 'development';
@@ -147,6 +146,7 @@ export const loginUser = async (email: string, password: string) => {
   const valid = await bcrypt.compare(password, user.password);
   if (!valid) return null;
 
+  const { signToken } = await import('@/lib/auth');
   return signToken({ id: user.uuid, email: user.email });
 };
 
@@ -278,6 +278,7 @@ export const authenticateToken = async (req: Request) => {
   const token = authHeader.split(' ')[1];
   if (!token) return null;
 
+  const { verifyToken } = await import('@/lib/auth');
   const payload = await verifyToken(token);
   if (!payload) return null;
 
